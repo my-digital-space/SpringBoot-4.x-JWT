@@ -45,21 +45,93 @@
 	</dependencyManagement>
 
 	<dependencies>
+		<!-- REST API support: embedded Tomcat, Spring MVC, HTTP request/response handling -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webmvc</artifactId>
+			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Spring Security: authentication filters, password encoding, authorization rules -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+		<!-- JPA/Hibernate ORM: maps Java entities (User, Order, RefreshToken) to MySQL
+		tables -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+
+		<!-- Jakarta Bean Validation: validates incoming request DTOs (@NotBlank,
+		@Email, etc.) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
+		<!-- MySQL 8 JDBC driver: connects the application to the MySQL database -->
+		<dependency>
+			<groupId>com.mysql</groupId>
+			<artifactId>mysql-connector-j</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- JJWT API: interfaces for building and parsing JWT tokens.
+		Java JWT (jjwt)
+		-->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.13.0</version>
+		</dependency>
+
+		<!-- JJWT implementation: actual JWT signing/verification logic (runtime only) -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.13.0</version>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- JJWT Jackson integration: serializes/deserializes JWT claims using
+		Jackson (runtime only)
+		JJWT cannot automatically serialize claims properly.
+		This is a JJWT adapter/integration module that teaches JJWT how to use Jackson.
+		-->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.13.0</version>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Lombok: eliminates boilerplate — @Getter, @Setter, @Builder,
+		@RequiredArgsConstructor -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
-			<optional>true</optional>
+			<scope>provided</scope>
 		</dependency>
+
+
+
+		<!-- Spring Boot Test: JUnit 5, Mockito, Spring test context for unit/integration
+		tests -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<!-- Spring Security Test: test utilities for mocking authenticated users -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>

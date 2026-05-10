@@ -45,6 +45,7 @@ Security considerations:
 - Use Java 25 (java 25.0.2 2026-01-20 LTS)
 - Use Spring Boot 4.0.6
 - Use Spring Cloud 2025.1.1
+- Use io.jsonwebtoken 0.13.0
 - Use MySQL 8 database
 - Use Lombok
 - Use JWT authentication and authorization

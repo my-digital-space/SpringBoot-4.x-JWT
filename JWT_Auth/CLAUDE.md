@@ -38,6 +38,7 @@ Security considerations:
   7. Client continues using API with new access token
 - Do not store passwords in plain texts
 - Use the application.yaml file for all the dynamic configs
+- Use code comments for each and every line of code even for pom.xml or .yaml files
 
 ## Backend Tech Stack
 - Use Apache Maven 3.9.14

@@ -1,0 +1,842 @@
+{
+  "info": {
+    "name": "JWT Auth — E-Commerce API",
+    "_postman_id": "jwt-auth-ecommerce-collection-v1",
+    "description": "Complete end-to-end test collection for the JWT Auth Spring Boot 4.x API.\n\nTest order:\n1. Register\n2. Login  (access token auto-saved to {{accessToken}})\n3. Refresh Token\n4. Orders — Create, List, Get by ID, Update, Delete\n5. Logout\n\nPre-requisites:\n- App running on http://localhost:8081\n- MySQL running with jwt_auth_db created\n- Import the 'JWT_Auth_Environment.postman_environment.json' file alongside this collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+
+  "variable": [],
+
+  "item": [
+
+    {
+      "name": "🔐 Auth",
+      "description": "Authentication endpoints — register, login, refresh token, logout.",
+      "item": [
+
+        {
+          "name": "1. Register (new user)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Verify the response is 201 Created",
+                  "pm.test('Status is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// Parse the response body",
+                  "var json = pm.response.json();",
+                  "",
+                  "// Save the access token to the environment for subsequent requests",
+                  "pm.test('Response contains accessToken', function () {",
+                  "    pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+                  "    pm.environment.set('accessToken', json.accessToken);",
+                  "});",
+                  "",
+                  "// Verify token type is Bearer",
+                  "pm.test('tokenType is Bearer', function () {",
+                  "    pm.expect(json.tokenType).to.eql('Bearer');",
+                  "});",
+                  "",
+                  "// Verify expiresIn is 600 seconds (10 minutes)",
+                  "pm.test('expiresIn is 600 seconds', function () {",
+                  "    pm.expect(json.expiresIn).to.eql(600);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            },
+            "description": "Registers a new user with the USER role.\nOn success: 201 Created + accessToken in body + refresh token HttpOnly cookie.\nThe test script auto-saves the accessToken to the environment variable."
+          }
+        },
+
+        {
+          "name": "2. Register (duplicate email — expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Attempting to register with the same email must return 409 Conflict",
+                  "pm.test('Status is 409 Conflict', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test('Response contains error detail', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.detail).to.include('already registered');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            },
+            "description": "Attempts to register the same email twice. Must return 409 Conflict."
+          }
+        },
+
+        {
+          "name": "3. Register (validation error — expect 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Missing required fields must return 422 Unprocessable Entity",
+                  "pm.test('Status is 422 Unprocessable Entity', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('Response contains validation errors', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.errors).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"\",\n  \"lastName\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"short\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            },
+            "description": "Sends invalid fields to verify bean validation returns 422 with field-level errors."
+          }
+        },
+
+        {
+          "name": "4. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Verify 200 OK",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "// Save fresh access token — replaces the one from registration",
+                  "pm.test('Response contains accessToken', function () {",
+                  "    pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+                  "    pm.environment.set('accessToken', json.accessToken);",
+                  "    console.log('Access token saved: ' + json.accessToken.substring(0, 40) + '...');",
+                  "});",
+                  "",
+                  "pm.test('tokenType is Bearer', function () {",
+                  "    pm.expect(json.tokenType).to.eql('Bearer');",
+                  "});",
+                  "",
+                  "pm.test('expiresIn is 600 seconds', function () {",
+                  "    pm.expect(json.expiresIn).to.eql(600);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Authenticates with email + password.\nOn success: 200 OK + accessToken in body + refresh_token HttpOnly cookie.\nThe test script auto-saves accessToken to {{accessToken}}."
+          }
+        },
+
+        {
+          "name": "5. Login (wrong password — expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"WrongPassword!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Sends wrong password. Must return 401 Unauthorized."
+          }
+        },
+
+        {
+          "name": "6. Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Verify 200 OK",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "// The old access token is replaced — save the new one",
+                  "pm.test('New accessToken returned', function () {",
+                  "    pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+                  "    pm.environment.set('accessToken', json.accessToken);",
+                  "    console.log('Refreshed access token saved.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            },
+            "description": "Exchanges the HttpOnly refresh_token cookie (set automatically by the browser / Postman cookie jar during login) for a new access token.\nThe old refresh token is rotated (deleted + new one issued).\nNo Authorization header needed — the cookie is sent automatically.\n\nNOTE: Make sure 'Automatically follow redirects' is ON and the Postman cookie jar is enabled."
+          }
+        },
+
+        {
+          "name": "7. Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Logout returns 204 No Content",
+                  "pm.test('Status is 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "// Clear the saved access token — it is now stale",
+                  "pm.environment.unset('accessToken');",
+                  "console.log('Access token cleared from environment.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Revokes all refresh tokens for the authenticated user and clears the HttpOnly cookie.\nRequires the Authorization: Bearer header AND the refresh_token cookie in the jar.\nReturns 204 No Content."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "📦 Orders",
+      "description": "Order CRUD endpoints — all require a valid JWT in the Authorization header.\n\nRole behaviour:\n- USER  → can only see/create/update their own orders; cannot delete\n- MANAGER / ADMIN → can see all orders; can delete any order",
+      "item": [
+
+        {
+          "name": "1. Create Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "// Save the order ID for subsequent Get / Update / Delete requests",
+                  "pm.test('Response contains order id', function () {",
+                  "    pm.expect(json.id).to.be.a('number');",
+                  "    pm.environment.set('orderId', json.id);",
+                  "    console.log('Order ID saved: ' + json.id);",
+                  "});",
+                  "",
+                  "pm.test('Status is PENDING', function () {",
+                  "    pm.expect(json.status).to.eql('PENDING');",
+                  "});",
+                  "",
+                  "pm.test('Description matches request', function () {",
+                  "    pm.expect(json.description).to.eql('2x Widget Pro, 1x Gadget Deluxe');",
+                  "});",
+                  "",
+                  "pm.test('totalAmount matches request', function () {",
+                  "    pm.expect(parseFloat(json.totalAmount)).to.eql(149.99);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"2x Widget Pro, 1x Gadget Deluxe\",\n  \"totalAmount\": 149.99\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            },
+            "description": "Creates a new order owned by the authenticated user.\nNew orders always start in PENDING status.\nThe test script saves the returned id to {{orderId}}."
+          }
+        },
+
+        {
+          "name": "2. Create Order (validation error — expect 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422 Unprocessable Entity', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('Validation errors present', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.errors).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"\",\n  \"totalAmount\": -5.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            },
+            "description": "Sends an empty description and a negative total. Must return 422 with field errors."
+          }
+        },
+
+        {
+          "name": "3. List All Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    console.log('Orders returned: ' + json.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            },
+            "description": "Lists orders.\n- USER role  → returns only the caller's own orders.\n- MANAGER / ADMIN → returns all orders in the system."
+          }
+        },
+
+        {
+          "name": "4. Get Order by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "pm.test('Returned order ID matches', function () {",
+                  "    pm.expect(json.id).to.eql(pm.environment.get('orderId') * 1);",
+                  "});",
+                  "",
+                  "pm.test('Order has expected fields', function () {",
+                  "    pm.expect(json).to.have.all.keys('id', 'description', 'totalAmount', 'status', 'ownerEmail', 'createdAt', 'updatedAt');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}"]
+            },
+            "description": "Fetches a single order by the ID saved in {{orderId}} during Create Order.\nUSER role returns 403 if the order belongs to a different user."
+          }
+        },
+
+        {
+          "name": "5. Get Order by ID (not found — expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404 Not Found', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "999999"]
+            },
+            "description": "Requests a non-existent order ID. Must return 404 Not Found."
+          }
+        },
+
+        {
+          "name": "6. Update Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "pm.test('Description was updated', function () {",
+                  "    pm.expect(json.description).to.eql('3x Widget Pro (updated)');",
+                  "});",
+                  "",
+                  "pm.test('Total amount was updated', function () {",
+                  "    pm.expect(parseFloat(json.totalAmount)).to.eql(199.99);",
+                  "});",
+                  "",
+                  "pm.test('updatedAt is present', function () {",
+                  "    pm.expect(json.updatedAt).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"3x Widget Pro (updated)\",\n  \"totalAmount\": 199.99\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}"]
+            },
+            "description": "Updates the description and total amount of the order created in step 1.\nUSER role returns 403 if the order belongs to a different user."
+          }
+        },
+
+        {
+          "name": "7. Delete Order (USER — expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// USER role is not allowed to delete orders",
+                  "pm.test('Status is 403 Forbidden for USER role', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}"]
+            },
+            "description": "Attempts to delete an order using a USER-role token.\nMust return 403 Forbidden — only MANAGER and ADMIN can delete.\n\nTo test successful delete: login as an ADMIN/MANAGER user and use that accessToken."
+          }
+        },
+
+        {
+          "name": "8. Delete Order (no token — expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}"]
+            },
+            "description": "Sends a DELETE request with no Authorization header. Must return 401."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "👑 Admin Flow",
+      "description": "Demonstrates the full ADMIN flow:\n1. Login as admin (seed the admin user first — see DATABASE.md)\n2. List ALL orders (admin sees everyone's)\n3. Delete an order (admin only)\n4. Logout",
+      "item": [
+
+        {
+          "name": "1. Login as ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "// Save the ADMIN access token separately so we can switch back to USER later",
+                  "pm.test('Admin accessToken saved', function () {",
+                  "    pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+                  "    pm.environment.set('adminAccessToken', json.accessToken);",
+                  "    pm.environment.set('accessToken', json.accessToken);",
+                  "    console.log('Admin token saved.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@jwt-auth-app.com\",\n  \"password\": \"AdminP@ss123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Login as the seeded ADMIN user (see DATABASE.md — Section 3 for the INSERT script).\nSaves the token to both {{adminAccessToken}} and {{accessToken}}."
+          }
+        },
+
+        {
+          "name": "2. List ALL Orders (admin sees all)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    console.log('Total orders visible to admin: ' + json.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            },
+            "description": "ADMIN sees every order in the system (not filtered by user)."
+          }
+        },
+
+        {
+          "name": "3. Delete Order (admin — expect 204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "// Clear the saved orderId — it no longer exists",
+                  "pm.environment.unset('orderId');",
+                  "console.log('Order deleted. orderId cleared from environment.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}"]
+            },
+            "description": "Deletes the order created in the Orders flow using the ADMIN token.\nReturns 204 No Content and clears {{orderId}} from the environment."
+          }
+        },
+
+        {
+          "name": "4. Logout ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.environment.unset('adminAccessToken');",
+                  "pm.environment.unset('accessToken');",
+                  "console.log('Admin logged out. Tokens cleared.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Logs out the ADMIN and clears both admin tokens from the environment."
+          }
+        }
+
+      ]
+    }
+
+  ]
+}

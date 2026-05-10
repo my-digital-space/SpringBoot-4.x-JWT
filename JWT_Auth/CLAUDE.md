@@ -52,15 +52,15 @@ Security considerations:
 - Use REST endpoints
 
 ## REST endpoints
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| GET | `/api/orders` | List all orders | Yes |
-| GET | `/api/orders/{id}` | Fetch specific order | Yes |
-| POST | `/api/orders` | Create a new order | Yes |
-| PUT | `/api/orders/{id}` | Update order | Yes |
-| DELETE | `/api/orders/{id}` | Remove an order | Yes |
-| POST | `/api/auth/login` | Authenticate user and generate JWT | No |
-| POST | `/api/auth/signup` | Register new users | No |
+| Method | Endpoint           | Description | Auth Required |
+|---|--------------------|---|---|
+| GET | `/api/v1/orders`   | List all orders | Yes |
+| GET | `/api/v1/orders/{id}` | Fetch specific order | Yes |
+| POST | `/api/v1/orders`      | Create a new order | Yes |
+| PUT | `/api/v1/orders/{id}` | Update order | Yes |
+| DELETE | `/api/v1/orders/{id}` | Remove an order | Yes |
+| POST | `/api/v1/auth/login`  | Authenticate user and generate JWT | No |
+| POST | `/api/v1/auth/signup` | Register new users | No |
 
 Note: for the GET `/api/orders` endpoint, it
 will first check the role. If the role is 

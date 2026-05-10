@@ -41,8 +41,8 @@ spring:
   # ----------------------------------------------------------
   jackson: # Jackson ObjectMapper configuration
     default-property-inclusion: non_null # Omit null fields from all JSON responses
-    serialization: # Serialisation feature flags
-      write-dates-as-timestamps: false # Serialise dates as ISO-8601 strings, not epoch numbers
+    # Note: write-dates-as-timestamps is removed — Jackson 3.x (bundled with Spring Boot 4.x)
+    # serialises dates as ISO-8601 strings by default; the old SerializationFeature no longer exists
 
 # ============================================================
 # Server configuration
